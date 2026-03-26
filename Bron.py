@@ -1,3 +1,5 @@
+pip install streamlit openai speechrecognition gtts deep-translator elevenlabs streamlit-webrtc
+
 import streamlit as st
 from openai import OpenAI
 from deep_translator import GoogleTranslator
