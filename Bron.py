@@ -1,27 +1,27 @@
 import streamlit as st
-from openai import OpenAI
+import openai
 from deep_translator import GoogleTranslator
 from elevenlabs.client import ElevenLabs
 import tempfile
 
 # ===================== CONFIG =====================
-OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+# Use Streamlit secrets
+openai.api_key = st.secrets["OPENAI_API_KEY"]
 ELEVEN_API_KEY = st.secrets["ELEVEN_API_KEY"]
-
-client = OpenAI(api_key=OPENAI_API_KEY)
 eleven = ElevenLabs(api_key=ELEVEN_API_KEY)
 
-# ===================== UI =====================
 st.set_page_config(page_title="LeBron AI", layout="centered")
-st.title("🏀 LeBron AI (Text Input Version)")
-
-mode = st.selectbox("Language", ["English", "Nepali"])
+st.title("🏀 LeBron AI (Text + Audio)")
 
 # ===================== STATE =====================
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# ===================== AI =====================
+# ===================== UI OPTIONS =====================
+mode = st.selectbox("Language", ["English", "Nepali"])
+input_mode = st.radio("How do you want to ask LeBron?", ["Text", "Voice"])
+
+# ===================== HELPER FUNCTIONS =====================
 def get_response(user_input):
     system_prompt = """
     You are an AI that talks like LeBron James.
@@ -34,33 +34,28 @@ def get_response(user_input):
       "Stay locked in"
       "Control what you can control"
     """
-
     messages = [{"role": "system", "content": system_prompt}]
     messages += st.session_state.chat_history
     messages.append({"role": "user", "content": user_input})
 
-    # ✅ Use valid model here
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
+    response = openai.ChatCompletion.create(
+        model="gpt-4o-mini",  # reliable for Streamlit Cloud
         messages=messages
     )
 
     reply = response.choices[0].message.content
-
     st.session_state.chat_history.append({"role": "user", "content": user_input})
     st.session_state.chat_history.append({"role": "assistant", "content": reply})
-
     return reply
 
-# ===================== TRANSLATION =====================
 def to_nepali(text):
     return GoogleTranslator(source='auto', target='ne').translate(text)
 
 def to_english(text):
     return GoogleTranslator(source='auto', target='en').translate(text)
 
-# ===================== VOICE =====================
 def speak(text):
+    # Generate audio using ElevenLabs
     audio = eleven.text_to_speech.convert(
         text=text,
         voice_id="21m00Tcm4TlvDq8ikWAM"  # default LeBron-like voice
@@ -68,10 +63,28 @@ def speak(text):
     return audio
 
 # ===================== USER INPUT =====================
-st.subheader("Type your question for LeBron:")
+user_input = ""
 
-user_input = st.text_input("Your question:")
+if input_mode == "Text":
+    user_input = st.text_input("Type your question:")
 
+elif input_mode == "Voice":
+    audio_file = st.file_uploader("Upload a short audio clip (WAV/MP3):", type=["wav", "mp3"])
+    if audio_file:
+        # Save temp file
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp.write(audio_file.read())
+            tmp_path = tmp.name
+
+        # Transcribe using OpenAI's audio transcription
+        transcription = openai.Audio.transcriptions.create(
+            model="whisper-1",
+            file=open(tmp_path, "rb")
+        )
+        user_input = transcription["text"]
+        st.write("🗣️ You said:", user_input)
+
+# ===================== PROCESS INPUT =====================
 if user_input:
     input_text = user_input
     if mode == "Nepali":
@@ -85,6 +98,12 @@ if user_input:
 
     st.write("🏀 AI:", response)
 
-    # Generate voice
+    # Voice output
     audio_bytes = speak(response)
     st.audio(audio_bytes)
+
+# ===================== CHAT HISTORY =====================
+st.subheader("Chat History")
+for msg in st.session_state.chat_history:
+    role = "You" if msg["role"] == "user" else "LeBron"
+    st.write(f"**{role}:** {msg['content']}")
