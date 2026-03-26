@@ -1,0 +1,7 @@
+streamlit
+openai
+deep-translator
+elevenlabs
+streamlit-webrtc
+av
+numpy
