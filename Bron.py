@@ -5,8 +5,11 @@ from elevenlabs.client import ElevenLabs
 import tempfile
 
 # ===================== CONFIG =====================
-client = OpenAI(api_key="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")
-eleven = ElevenLabs(api_key="sk_305bf9ef2c80188fdf366de16ba53adbc8a84fcfc91a5f0d")
+OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+ELEVEN_API_KEY = st.secrets["ELEVEN_API_KEY"]
+
+client = OpenAI(api_key=OPENAI_API_KEY)
+eleven = ElevenLabs(api_key=ELEVEN_API_KEY)
 
 # ===================== UI =====================
 st.set_page_config(page_title="LeBron AI", layout="centered")
